@@ -11,6 +11,7 @@
 // @resource     https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css
 // @grant        unsafeWindow
 // @grant        GM_addStyle
+// @grant        GM_notification
 // ==/UserScript==
 
 /**
@@ -121,24 +122,40 @@ function updateInfo() {
     // Templates
     templateList = $('#meteor-miner #mm-templates-list');
     loadedTmpls = getLoadedTemplateNames();
+    sortNeeded = false;
     $.each(getTemplateNames(), function(index,tmplName) {
         tmplDiv = templateList.find('[name="' + tmplName + '"]');
         if (tmplDiv.length === 0) {
             // not loaded, create a stub
-            r = templateList.append('<div name="' + tmplName + '">' + tmplName + '</div>');
+            r = templateList.append('<div name="' + tmplName + '" class="mm-new">' + tmplName + '</div>');
             tmplDiv = templateList.find('[name="' + tmplName + '"]');
+            sortNeeded = true;
         }
         // is loaded?
         if ($.inArray(tmplName, loadedTmpls) !== -1) {
-            tmplDiv.removeClass('mm-not-loaded').addClass('mm-loaded');
+            tmplDiv.removeClass('mm-not-loaded').addClass('mm-loaded').addClass('mm-new');
         } else {
-            tmplDiv.removeClass('mm-loaded').addClass('mm-not-loaded');
+            tmplDiv.removeClass('mm-loaded').addClass('mm-not-loaded').removeClass('mm-new');
         }
         tmplDiv.data('template', Template[tmplName]);
     });
+    // sort the display
+    if (sortNeeded) {
+        templateListItems = templateList.children().sort(function (a,b) {
+            aa = $(a).attr('name');
+            bb = $(b).attr('name');
+            if (aa > bb) { return  1; }
+            if (aa < bb) { return -1; }
+            return 0;
+        });
+        templateList.children().remove();
+        templateList.append(templateListItems);
+    }
 
     // Collections
     collectionList = $('#meteor-miner #mm-collections-list');
+    sortNeeded = false;
+    // update the items
     $.each(getCollections(), function(index,col) {
         uniqueFieldCount = Object.keys(col.fieldCounts).length;
         if (uniqueFieldCount >= 2) {
@@ -156,32 +173,67 @@ function updateInfo() {
                     <div class="field-counts"></div> \
                  </div>');
             colDiv = collectionList.find('[name="' + col.name + '"]');
+            sortNeeded = true;
         }
         // has data?
+        oldSize = colDiv.find('.size').text().trim();
+        newSize = col.count + plural(col.count,' Record');
+        oldFieldCounts = colDiv.find('.field-counts').text().trim();
+        newFieldCounts = uniqueFieldCountText;
+        // update loaded
         if (col.count > 0) {
             colDiv.removeClass('mm-not-loaded').addClass('mm-loaded');
-            colDiv.find('.size').text(col.count + ' Records');
-            colDiv.find('.field-counts').text(uniqueFieldCountText);
         } else {
             colDiv.removeClass('mm-loaded').addClass('mm-not-loaded');
-            colDiv.find('.size').text('0 Records');
-            colDiv.find('.field-counts').text(uniqueFieldCountText);
         }
+        // update size and highlight if changed
+        if (oldSize !== newSize) {
+            colDiv.find('.size').remove();
+            colDiv.append('<div class="size mm-new">' + newSize + ' </div>');
+        }
+        // update field counts and highlight if changed
+        if (oldFieldCounts !== newFieldCounts) {
+            //colDiv.find('.field-counts').text(uniqueFieldCountText).addClass('mm-new');
+            colDiv.find('.field-counts').remove();
+            colDiv.append('<div class="field-counts mm-new">' + uniqueFieldCountText + ' </div>');
+        } else {
+            // move to end
+            //colDiv.append(colDiv.find('.field-counts'));
+        }
+
         // bind the collection info to the div
         colDiv = $('#mm-collections-list div[name="' + col.name + '"]');
         colDiv.data('collectionInfo', col);
     });
+    // sort the display
+    if (sortNeeded) {
+        collectionListItems = collectionList.children().sort(function (a,b) {
+            aa = $(a).attr('name');
+            bb = $(b).attr('name');
+            if (aa > bb) { return  1; }
+            if (aa < bb) { return -1; }
+            return 0;
+        });
+        collectionList.children().remove();
+        collectionList.append(collectionListItems);
+    }
 
     // Subscriptions
     subsList = $('#meteor-miner #mm-subscriptions-list');
+    sortNeeded = false;
+    // get the subsriptions
     subs = unsafeWindow.Meteor.connection._subscriptions;
+    // tag subscriptions as not in use, remove later if not updated
+    subsList.children().attr('dead', 'dead');
+    // update each sub
     for (var sKey in subs) {
         sub = subs[sKey];
         subDiv = subsList.find('[name="' + sub.name + '"]');
         if (subDiv.length === 0) {
             // not loaded, create a stub
-            subsList.append('<div name="' + sub.name + '">' + sub.name + '<div class="params"></div></div>');
+            subsList.append('<div name="' + sub.name + '" class="mm-new">' + sub.name + '<div class="params"></div></div>');
             subDiv = subsList.find('[name="' + sub.name + '"]');
+            sortNeeded = true;
         }
         if (sub.ready) {
             subDiv.addClass('mm-ready').removeClass('mm-not-ready');
@@ -201,7 +253,51 @@ function updateInfo() {
         } else {
             subDiv.find('.params').text('');
         }
+        // remove dead
+        subDiv.removeAttr('dead');
     }
+
+    // remove subscriptions no longer in use
+    subsList.children('[dead=dead]').remove();
+
+    // sort the display
+    if (sortNeeded) {
+        subsListItems = subsList.children().sort(function (a,b) {
+            aa = $(a).attr('name');
+            bb = $(b).attr('name');
+            if (aa > bb) { return  1; }
+            if (aa < bb) { return -1; }
+            return 0;
+        });
+        subsList.append(subsListItems);
+    }
+}
+
+function updateInfoOnce() {
+    // the routes are static, so no need to get it on every update
+
+    // check if Iron router is in use
+    // TODO: check if one of the other router platforms is in use and get those routes
+    if (typeof(Router) !== 'function' || typeof(Router.routes) !== 'object') {
+        $('#meteor-miner .mm-routes-header').hide();
+        $('#meteor-miner .mm-routes-list').hide();
+    } else {
+        // get the routes div
+        routesList = $('#meteor-miner #mm-routes-list');
+        for (var i=0; i<Router.routes.length; i++) {
+            routesList.append('<div name="' + Router.routes[i].getName() + '" class="mm-loaded">' + Router.routes[i]._path + '&nbsp;<a href="' + Router.routes[i]._path + '" class="mm-not-loaded">&gt;</a></div>');
+        }
+        routesListItems = routesList.children().sort(function (a,b) {
+            aa = $(a).attr('name');
+            bb = $(b).attr('name');
+            if (aa > bb) { return  1; }
+            if (aa < bb) { return -1; }
+            return 0;
+        });
+        routesList.children().remove();
+        routesList.append(routesListItems);
+    }
+
 }
 
 // ********************************************************************************
@@ -250,15 +346,6 @@ function plural(num, text) {
     return text + 's';
 }
 
-function testing() {
-    return;
-    for (var r of Meteor.users.find().fetch()) {
-        fieldNames = deepPropertyNames(r).toString();
-        console.log(fieldNames);
-        //counts[fieldNames] = (counts[fieldNames] + 1) || 1;
-    }
-}
-
 // ********************************************************************************
 // ********************************************************************************
 // ***                                                                          ***
@@ -281,16 +368,14 @@ $('body').on('click', '#meteor-miner #mm-collections-list div', function(event) 
     }
 
     cInfo = target.data('collectionInfo');
+
+    if (cInfo.count === 0) {
+        // if no records there are no details to see
+        return;
+    }
     // get the fields
-    //fieldsOutput = [];
-    //cDetailsHtml = '<table><thead><tr><th>Cnt </th><th>Fields</th></tr></thead><tbody>';
     cDetailsHtml = '';
     for (var fields of Object.keys(cInfo.fieldCounts)) {
-        //console.log(cInfo.fieldCounts[fields] + ' - ' + fields);
-        //console.log(fields);
-        //console.log();
-        //fieldsOutput.push(cInfo.fieldCounts[fields] + ' - ' + fields.replace(/,/g, ', '));
-        //cDetailsHtml += '<tr><td style="text-align: center;">' + cInfo.fieldCounts[fields] + '</td><td>' + fields.replace(/,/g, ', ') + '</td></tr>';
         cDetailsHtml += '<div class="header">' + cInfo.fieldCounts[fields] + plural(cInfo.fieldCounts[fields], ' record') + ':</div><div class="detail">' + fields.replace(/,/g, ', ') + '</div>';
     }
     //cDetailsHtml += '</tbody></table>';
@@ -349,13 +434,20 @@ $('body').on('click', '#meteor-miner #mm-templates-list div', function(event) {
  * Move from the secondary panel to the main panel
  */
 $('body').on('click', '#meteor-miner * .mm-secondary-nav', function(event) {
-    // do something
     event.preventDefault();
     event.stopPropagation();
     $('#meteor-miner .mm-main-panel').show();
     $('#meteor-miner .mm-secondary-panel').hide();
 });
 
+/**
+ * Toggle the display of children div items
+ */
+$('body').on('click', '#meteor-miner * .mm-list-parent', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    $(event.target).toggleClass('mm-hide-children');
+});
 
 // ********************************************************************************
 // ********************************************************************************
@@ -364,7 +456,6 @@ $('body').on('click', '#meteor-miner * .mm-secondary-nav', function(event) {
 // ***                                                                          ***
 // ********************************************************************************
 // ********************************************************************************
-
 
 $(document).ready(function() {
     'use strict';
@@ -389,8 +480,25 @@ $(document).ready(function() {
     GM_addStyle('#meteor-miner * .mm-secondary-nav { color: #888; display: inline-block; };');
     GM_addStyle('#meteor-miner * .mm-secondary-header { display: inline-block; };');
     GM_addStyle('#meteor-miner * .mm-secondary-details table { border-collapse: collapse; width: 100%; font-size: smaller; };');
-    GM_addStyle('#meteor-miner * .mm-secondary-details .header { font-weight: bold; display: block; }');
-    GM_addStyle('#meteor-miner * .mm-secondary-details .detail { font-size: smaller ; display: block; padding-left: 5px; }');
+    GM_addStyle('#meteor-miner * .mm-secondary-details .header { font-weight: bold; display: block; };');
+    GM_addStyle('#meteor-miner * .mm-secondary-details .detail { font-size: smaller ; display: block; padding-left: 5px; };');
+    GM_addStyle('#meteor-miner * .mm-hide-children div { display: none; };');
+    GM_addStyle('#meteor-miner * #mm-hide-not-loaded-toggle { font-size: smaller; };');
+    GM_addStyle('#meteor-miner * .mm-new { animation: colorchange 5s; -webkit-animation: colorchange 5s;};');
+    GM_addStyle('@keyframes colorchange { \
+                   0% {color: red;}; \
+                   25% {color: yellow;}; \
+                   50% {color: blue;}; \
+                   75% {color: green;}; \
+                   100% {color: red;}; \
+                 };');
+    GM_addStyle('@-webkit-keyframes colorchange { \
+                   0% {color: red;}; \
+                   25% {color: yellow;}; \
+                   50% {color: blue;}; \
+                   75% {color: green;}; \
+                   100% {color: red;}; \
+                 };');
 
     // the window to show the Meteor info
     jQuery('<div/>', {
@@ -399,11 +507,19 @@ $(document).ready(function() {
             <div class="mm-main-panel"> \
                 <div class="mm-main-header mm-header">Meteor Miner</div> \
                 <div class="mm-main-details"> \
-                    <div class="mm-hide-not-loaded-toggle" onclick="$(\'[id^=mm-][id$=-list]\').toggleClass(\'mm-hide-not-loaded\')">Toggle Loaded Only</div> \
-                    <div class="mm-collections-header">Collections</div><div id="mm-collections-list" class="mm-list mm-hide-not-loaded"></div> \
-                    <div class="mm-subscriptions-header">Subscriptions</div><div id="mm-subscriptions-list" class="mm-list mm-hide-not-loaded"></div> \
-                    <div class="mm-templates-header" onclick="$(\'#mm-templates-list\').toggle();">Templates</div> \
-                    <div id="mm-templates-list" class="mm-list mm-hide-not-loaded"></div> \
+                    <div id="mm-hide-not-loaded-toggle" onclick="$(\'[id^=mm-][id$=-list]\').toggleClass(\'mm-hide-not-loaded\')">Toggle Loaded Only</div> \
+                    <div id="mm-collections-header" class="mm-hide-children-nope mm-list-parent">Collections \
+                        <div id="mm-collections-list" class="mm-list mm-hide-not-loaded"></div> \
+                    </div> \
+                    <div id="mm-subscriptions-header" class="mm-hide-children-nope mm-list-parent">Subscriptions \
+                        <div id="mm-subscriptions-list" class="mm-list mm-hide-not-loaded"></div> \
+                    </div> \
+                    <div id="mm-templates-header" class="mm-hide-children-nope mm-list-parent">Templates \
+                        <div id="mm-templates-list" class="mm-list mm-hide-not-loaded"></div> \
+                    </div> \
+                    <div id="mm-routes-header"  class="mm-hide-children-nope mm-list-parent">Routes \
+                        <div id="mm-routes-list" class="mm-list"></div> \
+                    </div> \
                 </div> \
             </div> \
             <div class="mm-secondary-panel" style="display: none;"> \
@@ -416,9 +532,6 @@ $(document).ready(function() {
     var mm = $('#meteor-miner');
     mm.resizable({ handles: 'all' });
 
-    updateInfo();
-    //setTimeout(updateInfo, 1000);
     setInterval(updateInfo, 1000);
-    //setTimeout(testing, 1000);
-
+    setTimeout(updateInfoOnce, 1000);
 });
