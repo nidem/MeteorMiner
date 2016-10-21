@@ -430,6 +430,10 @@ $('body').on('click', '#meteor-miner #mm-templates-list div', function(event) {
 
 });
 
+$('body').on('click', '#meteor-miner * #mm-routes-list a', function(event) {
+    Router.go($(event.target).attr('href'));
+});
+
 /**
  * Move from the secondary panel to the main panel
  */
