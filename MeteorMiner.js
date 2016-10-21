@@ -486,18 +486,14 @@ $(document).ready(function() {
     GM_addStyle('#meteor-miner * #mm-hide-not-loaded-toggle { font-size: smaller; };');
     GM_addStyle('#meteor-miner * .mm-new { animation: colorchange 5s; -webkit-animation: colorchange 5s;};');
     GM_addStyle('@keyframes colorchange { \
-                   0% {color: red;}; \
-                   25% {color: yellow;}; \
+                   0% {color: yellow;}; \
                    50% {color: blue;}; \
-                   75% {color: green;}; \
-                   100% {color: red;}; \
+                   100% {color: yellow;}; \
                  };');
     GM_addStyle('@-webkit-keyframes colorchange { \
-                   0% {color: red;}; \
-                   25% {color: yellow;}; \
+                   0% {color: yellow;}; \
                    50% {color: blue;}; \
-                   75% {color: green;}; \
-                   100% {color: red;}; \
+                   100% {color: yellow;}; \
                  };');
 
     // the window to show the Meteor info
