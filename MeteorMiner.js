@@ -241,15 +241,8 @@ function updateInfo() {
             subDiv.removeClass('mm-ready').addClass('mm-not-ready');
         }
         if (sub.params.length) {
-            paramArray = [];
-            for (var i=0; i<sub.params.length; i++) {
-                if (typeof(sub.params[i]) === 'undefined') {
-                    paramArray.push('undefined');
-                } else {
-                    paramArray.push(sub.params[i].toString());
-                }
-            }
-            subDiv.find('.params').text('Param Values: ' + paramArray.toString());
+            paramString = JSON.stringify(sub.params, function(k, v) { if (v === undefined) { return null; } return v; });
+            subDiv.find('.params').text('Param Values: ' + paramString);
         } else {
             subDiv.find('.params').text('');
         }
@@ -358,7 +351,6 @@ function plural(num, text) {
  * Get click on collections, show field info
  */
 $('body').on('click', '#meteor-miner #mm-collections-list div', function(event) {
-    // do something
     event.preventDefault();
     event.stopPropagation();
     if ($(event.target).hasClass('collection')) {
