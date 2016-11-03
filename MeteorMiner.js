@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Meteor Miner
 // @namespace    MeteorMiner
-// @version      0.1
+// @version      0.2
 // @description  Extract data form Meteor
 // @author       Tim Medin (Counter Hack)
 // @match        http://*/*
@@ -231,7 +231,8 @@ function updateInfo() {
         subDiv = subsList.find('[name="' + sub.name + '"]');
         if (subDiv.length === 0) {
             // not loaded, create a stub
-            subsList.append('<div name="' + sub.name + '" class="mm-new">' + sub.name + '<div class="params"></div></div>');
+            stub = '<div name="' + sub.name + '" class="mm-new">' + sub.name + '<div class="params"></div></div>';
+            subsList.append(stub);
             subDiv = subsList.find('[name="' + sub.name + '"]');
             sortNeeded = true;
         }
@@ -254,7 +255,8 @@ function updateInfo() {
     subsList.children('[dead=dead]').remove();
 
     // sort the display
-    if (sortNeeded) {
+    // TODO: sort will retrigger highlight, fix this
+    if (sortNeeded && 1===2) {
         subsListItems = subsList.children().sort(function (a,b) {
             aa = $(a).attr('name');
             bb = $(b).attr('name');
@@ -478,7 +480,8 @@ $(document).ready(function() {
     GM_addStyle('#meteor-miner * .mm-secondary-details table { border-collapse: collapse; width: 100%; font-size: smaller; };');
     GM_addStyle('#meteor-miner * .mm-secondary-details .header { font-weight: bold; display: block; };');
     GM_addStyle('#meteor-miner * .mm-secondary-details .detail { font-size: smaller ; display: block; padding-left: 5px; };');
-    GM_addStyle('#meteor-miner * .mm-hide-children div { display: none; };');
+    // remove -nope to hide the sub items by default
+    GM_addStyle('#meteor-miner * .mm-hide-children-nope div { display: none; };');
     GM_addStyle('#meteor-miner * #mm-hide-not-loaded-toggle { font-size: smaller; };');
     GM_addStyle('#meteor-miner * .mm-new { animation: colorchange 5s; -webkit-animation: colorchange 5s;};');
     GM_addStyle('@keyframes colorchange { \
@@ -500,16 +503,16 @@ $(document).ready(function() {
                 <div class="mm-main-header mm-header">Meteor Miner</div> \
                 <div class="mm-main-details"> \
                     <div id="mm-hide-not-loaded-toggle" onclick="$(\'[id^=mm-][id$=-list]\').toggleClass(\'mm-hide-not-loaded\')">Toggle Loaded Only</div> \
-                    <div id="mm-collections-header" class="mm-hide-children-nope mm-list-parent">Collections \
+                    <div id="mm-collections-header" class="mm-hide-children mm-list-parent">Collections \
                         <div id="mm-collections-list" class="mm-list mm-hide-not-loaded"></div> \
                     </div> \
-                    <div id="mm-subscriptions-header" class="mm-hide-children-nope mm-list-parent">Subscriptions \
+                    <div id="mm-subscriptions-header" class="mm-hide-children mm-list-parent">Subscriptions \
                         <div id="mm-subscriptions-list" class="mm-list mm-hide-not-loaded"></div> \
                     </div> \
-                    <div id="mm-templates-header" class="mm-hide-children-nope mm-list-parent">Templates \
+                    <div id="mm-templates-header" class="mm-hide-children mm-list-parent">Templates \
                         <div id="mm-templates-list" class="mm-list mm-hide-not-loaded"></div> \
                     </div> \
-                    <div id="mm-routes-header"  class="mm-hide-children-nope mm-list-parent">Routes \
+                    <div id="mm-routes-header"  class="mm-hide-children mm-list-parent">Routes \
                         <div id="mm-routes-list" class="mm-list"></div> \
                     </div> \
                 </div> \
@@ -527,3 +530,4 @@ $(document).ready(function() {
     setInterval(updateInfo, 1000);
     setTimeout(updateInfoOnce, 1000);
 });
+
